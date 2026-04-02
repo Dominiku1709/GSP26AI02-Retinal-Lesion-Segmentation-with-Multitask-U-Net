@@ -1,0 +1,18 @@
+# Web Server & API
+fastapi==0.128.0
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20  # Required for file uploads
+
+# Database
+sqlalchemy==2.0.38
+aiosqlite==0.20.0        # Async support for SQLite
+
+# AI & Medical Imaging (MONAI)
+monai==1.3.2
+onnxruntime==1.24.4      # For running the .onnx model (updated to available version)
+opencv-python-headless==4.9.0.80
+numpy==1.26.4
+
+# Utilities
+python-dotenv==1.0.1     # For .env configuration
+pydantic-settings==2.2.1

@@ -1,0 +1,7 @@
+# Terminal 1 — Backend
+cd Multitask_test/backend_2.0
+uvicorn app.main:app --reload --port 8000
+
+# Terminal 2 — Frontend
+cd Multitask_test/UX
+npm run dev      # → http://localhost:3000

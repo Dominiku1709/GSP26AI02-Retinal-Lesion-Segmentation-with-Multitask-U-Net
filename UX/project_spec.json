@@ -1,0 +1,254 @@
+{
+  "projectName": "RetinaAI UX",
+  "description": "AI-powered OCT retinal lesion segmentation and patient management interface for ophthalmologists",
+  "framework": "Next.js 16.1.6",
+  "language": "TypeScript",
+  "uiLibrary": "Shadcn/UI (built on Radix UI)",
+  "styling": "Tailwind CSS",
+  "version": "0.1.0",
+  "directories": {
+    "root": {
+      "description": "Root configuration and metadata files",
+      "files": {
+        "package.json": {
+          "type": "Configuration",
+          "description": "NPM dependencies and project scripts. Contains Next.js, React, Radix UI components, TailwindCSS, Shadcn/UI, and utility libraries",
+          "key_dependencies": [
+            "next@16.1.6",
+            "react@19.x",
+            "@radix-ui/* (UI component primitives)",
+            "tailwindcss (styling)",
+            "@hookform/resolvers (form validation)",
+            "date-fns (date utilities)",
+            "lucide-react (icon library)"
+          ]
+        },
+        "pnpm-lock.yaml": {
+          "type": "Dependency Lock File",
+          "description": "PNPM package manager lock file for reproducible dependency installations"
+        },
+        "package-lock.json": {
+          "type": "Dependency Lock File",
+          "description": "NPM package manager lock file (also available as pnpm-lock.yaml)"
+        },
+        "tsconfig.json": {
+          "type": "Configuration",
+          "description": "TypeScript compiler configuration for strict type checking and Next.js compatibility"
+        },
+        "next.config.mjs": {
+          "type": "Configuration",
+          "description": "Next.js configuration with custom build and runtime settings"
+        },
+        "postcss.config.mjs": {
+          "type": "Configuration",
+          "description": "PostCSS configuration for TailwindCSS processing and autoprefixing"
+        },
+        "components.json": {
+          "type": "Configuration",
+          "description": "Shadcn/UI configuration. Sets up component aliases, TailwindCSS options, icon library (lucide), and component style (new-york)"
+        },
+        "next-env.d.ts": {
+          "type": "Type Definition",
+          "description": "Auto-generated Next.js TypeScript type definitions"
+        },
+        ".gitignore": {
+          "type": "Configuration",
+          "description": "Git ignore rules for excluding node_modules, .next build output, and other development files"
+        }
+      }
+    },
+    "app/": {
+      "description": "Next.js App Router directory - main application entry point and layout",
+      "files": {
+        "layout.tsx": {
+          "type": "Layout Component",
+          "description": "Root layout component that wraps entire application. Sets metadata (title: 'RetinaAI - OCT Retinal Analysis'), viewport configuration, font imports, analytics integration, and global styles"
+        },
+        "page.tsx": {
+          "type": "Page Component",
+          "description": "Home/main page component - entry point for the application"
+        },
+        "globals.css": {
+          "type": "Stylesheet",
+          "description": "Global CSS styles applied to entire application, including TailwindCSS directives and custom CSS variables"
+        }
+      }
+    },
+    "components/": {
+      "description": "React components organized by feature and category",
+      "subdirectories": {
+        "ui/": {
+          "description": "Reusable UI component primitives built with Shadcn/UI and Radix UI",
+          "component_count": 52,
+          "files": {
+            "accordion.tsx": "Collapsible accordion component for expandable content sections",
+            "alert-dialog.tsx": "Modal dialog for alert messages requiring user confirmation",
+            "alert.tsx": "Non-modal alert notification component",
+            "badge.tsx": "Small label/tag component for categorization and status indicators",
+            "breadcrumb.tsx": "Navigation breadcrumb component showing page hierarchy",
+            "button-group.tsx": "Grouped button component for related actions",
+            "button.tsx": "Base button component with multiple variants and sizes",
+            "calendar.tsx": "Interactive calendar date picker component",
+            "card.tsx": "Container component for content grouping with optional shadow/border",
+            "carousel.tsx": "Carousel/slider component using embla-carousel-react",
+            "chart.tsx": "Data visualization chart component (likely using charting library)",
+            "collapsible.tsx": "Expandable/collapsible content container",
+            "command.tsx": "Command palette component (cmdk-based) for search/navigation",
+            "context-menu.tsx": "Right-click context menu component",
+            "dialog.tsx": "Modal dialog component for forms and important content",
+            "drawer.tsx": "Side drawer/sidebar panel component",
+            "dropdown-menu.tsx": "Dropdown menu component for actions and navigation",
+            "empty.tsx": "Empty state component displayed when no data is available",
+            "field.tsx": "Form field wrapper component",
+            "form.tsx": "Form component with validation support (react-hook-form integration)",
+            "hover-card.tsx": "Card component that appears on hover for additional information",
+            "input-group.tsx": "Input with icon/addon wrapper component",
+            "input-otp.tsx": "One-time password input component",
+            "input.tsx": "Base text input component",
+            "kbd.tsx": "Keyboard key display component",
+            "label.tsx": "Form label component",
+            "menubar.tsx": "Horizontal menubar component for primary navigation",
+            "navigation-menu.tsx": "Navigation menu component",
+            "pagination.tsx": "Pagination control component for data tables/lists",
+            "popover.tsx": "Popover component for contextual information",
+            "progress.tsx": "Progress bar component showing completion percentage",
+            "radio-group.tsx": "Radio button group component for single selection",
+            "resizable.tsx": "Resizable panel component with draggable dividers",
+            "scroll-area.tsx": "Scrollable area with custom scrollbar styling",
+            "select.tsx": "Dropdown select component for option selection",
+            "separator.tsx": "Visual separator/divider component",
+            "sheet.tsx": "Sheet component (similar to drawer)",
+            "sidebar.tsx": "Sidebar navigation component",
+            "skeleton.tsx": "Placeholder skeleton component for loading states",
+            "slider.tsx": "Range slider component for numeric input",
+            "sonner.tsx": "Toast notification component (using sonner library)",
+            "spinner.tsx": "Loading spinner animation component",
+            "table.tsx": "Data table component with sorting and filtering capabilities",
+            "tabs.tsx": "Tabbed interface component",
+            "textarea.tsx": "Multi-line text input component",
+            "toast.tsx": "Toast notification component",
+            "toaster.tsx": "Toast container component",
+            "toggle-group.tsx": "Grouped toggle component for multiple selections",
+            "toggle.tsx": "Single toggle/switch component",
+            "tooltip.tsx": "Tooltip component showing hint on hover",
+            "use-mobile.tsx": "Mobile detection hook component",
+            "use-toast.ts": "Toast notification hook utility"
+          }
+        },
+        "patients/": {
+          "description": "Patient management and profile components specific to ophthalmology practice",
+          "files": {
+            "patient-list.tsx": "Component displaying list of patients with search, filter, and pagination",
+            "patient-profile.tsx": "Individual patient profile page showing medical history and OCT results",
+            "patients-dashboard.tsx": "Main dashboard view for patient management with overview metrics",
+            "compare-modal.tsx": "Modal component for comparing multiple patient OCT scans side-by-side"
+          }
+        },
+        "scanner/": {
+          "description": "OCT scanner interface and image analysis components",
+          "files": {
+            "scanner-dashboard.tsx": "Main OCT scanner interface for uploading and analyzing retinal images",
+            "image-uploader.tsx": "Component for uploading OCT scan images with drag-and-drop",
+            "inference-metrics.tsx": "Display component showing AI model inference results (accuracy, segmentation scores)",
+            "analysis-viewer.tsx": "Component for viewing and analyzing segmentation results with overlay visualization",
+            "validation-panel.tsx": "Panel for validating AI-generated segmentation masks before saving",
+            "patient-assignment.tsx": "Component for assigning analyzed scans to specific patients",
+            "patient-context-panel.tsx": "Side panel showing patient context during scan analysis",
+            "processing-overlay.tsx": "Loading/processing overlay shown during AI inference",
+            "export-pdf.tsx": "Component for exporting analysis results as PDF report"
+          }
+        }
+      },
+      "root_components": {
+        "app-sidebar.tsx": "Main application sidebar with navigation menu",
+        "doctor-header.tsx": "Header component showing doctor information and quick actions",
+        "new-patient-modal.tsx": "Modal form for registering new patients",
+        "theme-provider.tsx": "Theme context provider for dark/light mode switching"
+      }
+    },
+    "lib/": {
+      "description": "Utility functions and services",
+      "files": {
+        "api.ts": {
+          "type": "API Service",
+          "description": "API client functions for communication with backend. Handles requests to endpoints like image upload, inference, patient CRUD operations"
+        },
+        "store.tsx": {
+          "type": "State Management",
+          "description": "Global state management (likely using React Context or Zustand) for app-wide state like current patient, selected scans, UI state"
+        },
+        "utils.ts": {
+          "type": "Utility Functions",
+          "description": "Helper functions for formatting, validation, type checking, and common operations"
+        }
+      }
+    },
+    "hooks/": {
+      "description": "Custom React hooks for reusable logic",
+      "files": {
+        "use-mobile.ts": {
+          "type": "Hook",
+          "description": "Hook for detecting mobile/responsive viewport and triggering responsive layout changes"
+        },
+        "use-toast.ts": {
+          "type": "Hook",
+          "description": "Hook for displaying toast notifications with predefined types (success, error, info, warning)"
+        }
+      }
+    },
+    "styles/": {
+      "description": "Global and component-specific stylesheets",
+      "files": {
+        "globals.css": {
+          "type": "Stylesheet",
+          "description": "Global CSS with TailwindCSS configuration, CSS custom properties for theming, and base element styles"
+        }
+      }
+    },
+    "public/": {
+      "description": "Static assets served directly by Next.js",
+      "files": {
+        "icon.svg": "SVG icon asset",
+        "placeholder-logo.svg": "Placeholder logo SVG",
+        "placeholder.svg": "Generic placeholder SVG for UI mockups"
+      }
+    },
+    ".next/": {
+      "description": "Next.js build output directory (auto-generated, not tracked in version control)",
+      "note": "Contains production-ready optimized code and static assets"
+    },
+    "node_modules/": {
+      "description": "NPM/PNPM installed dependencies directory (excluded from version control)",
+      "note": "Install with 'pnpm install' or 'npm install'"
+    }
+  },
+  "dataFlow": {
+    "user_interaction": "User interacts with UI components in browser",
+    "state_management": "State managed through store.tsx (React Context/Zustand)",
+    "api_calls": "API client (lib/api.ts) sends requests to backend",
+    "backend_communication": "Backend processes requests (image analysis, patient data CRUD)",
+    "ui_update": "Components re-render based on state changes"
+  },
+  "key_features": [
+    "Patient Management - Register, view, compare patient profiles",
+    "OCT Image Analysis - Upload retinal scans and run segmentation AI",
+    "Inference Results - Display segmentation masks and validation metrics",
+    "PDF Export - Generate and download analysis reports",
+    "Responsive Design - Works on desktop and mobile devices",
+    "Dark/Light Theme - Theme switching with theme-provider"
+  ],
+  "architecture_notes": {
+    "component_structure": "Feature-based organization (patients/, scanner/) with shared UI primitives",
+    "styling_approach": "Tailwind CSS with CSS custom properties for theming",
+    "form_handling": "React Hook Form with validation using @hookform/resolvers",
+    "ui_framework": "Shadcn/UI provide styled components built on Radix UI primitives",
+    "state_pattern": "Centralized state management likely through React Context or Zustand"
+  },
+  "build_and_run": {
+    "install_dependencies": "pnpm install",
+    "development_server": "pnpm run dev (runs on http://localhost:3000)",
+    "production_build": "pnpm run build",
+    "start_production": "pnpm run start",
+    "lint": "pnpm run lint"
+  }
+}
