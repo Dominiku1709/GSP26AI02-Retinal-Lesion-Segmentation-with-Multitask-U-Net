@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useAppState, type Patient } from "@/lib/store"
 import { cn } from "@/lib/utils"
 import { Search, UserPlus, UserCheck, Check, User, CheckCircle2, AlertCircle } from "lucide-react"
@@ -11,6 +11,9 @@ export interface NewPatientFormData {
   name: string
   dob: string
   gender: string
+  dobDay?: string
+  dobMonth?: string
+  dobYear?: string
 }
 
 interface PatientContextPanelProps {
@@ -57,6 +60,45 @@ export function PatientContextPanel({
   const { patients, selectedPatientId, setSelectedPatientId } = useAppState()
   const [search, setSearch] = useState("")
 
+  // DOB dropdown states
+  const [dobDay, setDobDay] = useState("")
+  const [dobMonth, setDobMonth] = useState("")
+  const [dobYear, setDobYear] = useState("")
+
+  const currentYear = new Date().getFullYear()
+  const years = Array.from({ length: 121 }, (_, i) => (currentYear - i).toString())
+  const months = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ]
+
+  const daysInMonth = useMemo(() => {
+    if (!dobMonth || !dobYear) return 31
+    return new Date(parseInt(dobYear), parseInt(dobMonth) + 1, 0).getDate()
+  }, [dobMonth, dobYear])
+
+  const days = Array.from({ length: daysInMonth }, (_, i) => (i + 1).toString())
+
+  // Validator: Kiểm tra DOB hợp lệ
+  const isValidDOB = (day: string, month: string, year: string) => {
+    if (!day || !month || !year) return false
+    
+    const selectedDate = new Date(parseInt(year), parseInt(month), parseInt(day))
+    const today = new Date()
+    
+    today.setHours(0, 0, 0, 0)
+    
+    return selectedDate <= today
+  }
+
+  // Convert dropdowns to ISO date string
+  const getISODate = () => {
+    if (!dobDay || !dobMonth || !dobYear) return ""
+    const month = (parseInt(dobMonth) + 1).toString().padStart(2, '0')
+    const day = dobDay.padStart(2, '0')
+    return `${dobYear}-${month}-${day}`
+  }
+
   const filtered = useMemo(
     () =>
       patients.filter(
@@ -83,8 +125,19 @@ export function PatientContextPanel({
     if (patientMode === "existing") {
       return !!selectedPatientId
     }
+    // For new patient, check if name is provided (DOB is optional)
     return newPatientForm.name.trim().length > 0
   }, [patientMode, selectedPatientId, newPatientForm.name])
+
+  // Sync DOB dropdowns to form data
+  useEffect(() => {
+    const isoDate = getISODate()
+    if (isoDate) {
+      setNewPatientForm((prev) => ({ ...prev, dob: isoDate }))
+    } else {
+      setNewPatientForm((prev) => ({ ...prev, dob: "" }))
+    }
+  }, [dobDay, dobMonth, dobYear])
 
   return (
     <div className="flex h-full flex-col">
@@ -205,7 +258,7 @@ export function PatientContextPanel({
               <input
                 id="pcp-name"
                 type="text"
-                placeholder="e.g. Jane Smith"
+                placeholder="Họ và tên"
                 value={newPatientForm.name}
                 onChange={(e) => updateField("name", e.target.value)}
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -214,30 +267,55 @@ export function PatientContextPanel({
 
             {/* DOB */}
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="pcp-dob" className="text-xs font-medium text-foreground">
+              <label className="text-xs font-medium text-foreground">
                 Date of Birth
               </label>
               <div className="flex gap-2">
-                <input
-                  id="pcp-dob"
-                  type="date"
-                  value={newPatientForm.dob}
-                  onChange={(e) => updateField("dob", e.target.value)}
-                  className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-                {newPatientForm.dob && (
-                  <span className="flex items-center rounded-lg bg-muted px-2.5 text-sm font-medium text-foreground">
-                    {computeAge(newPatientForm.dob)}y
-                  </span>
-                )}
+                <select
+                  value={dobMonth}
+                  onChange={(e) => {
+                    setDobMonth(e.target.value)
+                    setDobDay("")
+                  }}
+                  className="flex-[2] rounded-lg border border-input bg-background px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="">Month</option>
+                  {months.map((m, i) => <option key={m} value={i}>{m}</option>)}
+                </select>
+
+                <select
+                  value={dobDay}
+                  onChange={(e) => setDobDay(e.target.value)}
+                  className="flex-1 rounded-lg border border-input bg-background px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="">Day</option>
+                  {days.map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
+
+                <select
+                  value={dobYear}
+                  onChange={(e) => {
+                    setDobYear(e.target.value)
+                    setDobDay("")
+                  }}
+                  className="flex-1 rounded-lg border border-input bg-background px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="">Year</option>
+                  {years.map((y) => <option key={y} value={y}>{y}</option>)}
+                </select>
               </div>
+              {getISODate() && (
+                <p className="text-[10px] text-muted-foreground mt-1 text-right">
+                  Age: <span className="font-bold text-foreground">{computeAge(getISODate())}y</span>
+                </p>
+              )}
             </div>
 
             {/* Gender */}
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium text-foreground">Gender</label>
               <div className="flex rounded-lg bg-muted p-0.5">
-                {["Male", "Female", "Other"].map((g) => (
+                {["Male", "Female"].map((g) => (
                   <button
                     key={g}
                     onClick={() => updateField("gender", g)}
@@ -259,7 +337,7 @@ export function PatientContextPanel({
               <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-2.5">
                 <p className="text-xs text-primary font-medium">
                   Ready: &quot;{newPatientForm.name.trim()}&quot;
-                  {newPatientForm.dob && ` · ${computeAge(newPatientForm.dob)}y`}
+                  {getISODate() && ` · ${computeAge(getISODate())}y`}
                   {newPatientForm.gender && ` · ${newPatientForm.gender}`}
                 </p>
               </div>

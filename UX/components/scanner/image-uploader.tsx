@@ -231,9 +231,11 @@ export function ImageUploader({
       {!selectedFile && (
         <p className="text-center text-xs text-muted-foreground">
           The backend runs in mock mode if no model is loaded —{" "}
-          <span className="text-primary">safe to test without a real .onnx file</span>
+          <span className="text-primary">safe to test without a real .pth file</span>
         </p>
       )}
+
+      
     </div>
   )
 }

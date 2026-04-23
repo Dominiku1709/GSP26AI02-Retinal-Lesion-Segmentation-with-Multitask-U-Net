@@ -1,0 +1,249 @@
+import os
+import sys
+import logging
+import importlib
+import numpy as np
+import cv2
+import torch
+import torch.nn.functional as F
+import base64
+from pathlib import Path
+from typing import Dict, Any, List
+from dotenv import load_dotenv
+
+load_dotenv()
+logger = logging.getLogger(__name__)
+
+# --- CẤU HÌNH ĐƯỜNG DẪN CHUẨN ---
+CURRENT_FILE = Path(__file__).resolve()
+ROOT_DIR = CURRENT_FILE.parent.parent.parent 
+WEIGHTS_DIR = ROOT_DIR / "weights"
+
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+LABELS = ["Normal", "AMD", "DME"]
+
+# Cập nhật ARCH_REGISTRY: Đổi tất cả in_channels thành 3
+ARCH_REGISTRY = {
+    "deeplabv3plus": {
+        "module": "model_architecture.deeplabv3_architect", 
+        "class": "MultiTaskDeepLabV3Plus",
+        "weight_path": os.getenv("DEEPLAB_WEIGHT_PATH", "weights/deeplabv3_best_model.pth"),
+        "params": {
+            "encoder_name": "resnet50",
+            "encoder_weights": "imagenet",
+            "num_classes": 3,
+            "num_seg_classes": 2,
+            "in_channels": 3, # Updated
+            "dropout_rate": 0.3
+        }
+    },
+    "resnet_unet": {
+        "module": "model_architecture.resnet_unet_architecture",
+        "class": "MultiTaskUnet",
+        "weight_path": os.getenv("RESNET_UNET_WEIGHT_PATH", "weights/checkpoint_epoch_99.pth"),
+        "params": {
+            "encoder_name": "resnet50",
+            "encoder_weights": "imagenet",
+            "num_classes": 3,
+            "num_seg_classes": 2,
+            "in_channels": 3, # Updated
+            "dropout_rate": 0.3
+        }
+    },
+    "unetplusplus": {
+        "module": "model_architecture.unetplusplus_architecture",
+        "class": "UNetPlusPlusMultiTask",
+        "weight_path": os.getenv("UNETPLUSPLUS_WEIGHT_PATH", "weights/unet++.pth"),
+        "params": {
+            "encoder_name": "resnet50",
+            "encoder_weights": "imagenet",
+            "num_classes": 3,
+            "num_seg_classes": 2,
+            "in_channels": 3, # Updated
+            "dropout_rate": 0.3
+        }
+    },
+    "effb3_unet": {
+        "module": "model_architecture.effb3_unet_architecture",
+        "class": "AnyBackboneMultiTaskUNet",
+        "weight_path": os.getenv("EFFB3_UNET_WEIGHT_PATH", "weights/effb3.pth"),
+        "params": {
+            "encoder_name": "efficientnet-b3",
+            "in_channels": 3, # Updated
+            "num_classes": 3,
+            "num_seg_classes": 1, 
+            "dropout_rate": 0.3
+        }
+    }
+}
+
+class InferenceService:
+    # ImageNet Constants
+    MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+    STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+
+    def __init__(self, arch_type: str = "deeplabv3plus", use_tta: bool = False):
+        self.arch_type = arch_type
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.use_tta = use_tta
+        
+        arch_info = ARCH_REGISTRY.get(arch_type, ARCH_REGISTRY["deeplabv3plus"])
+        self.model_path = str(ROOT_DIR / arch_info["weight_path"])
+        self.model = self._load_model(arch_info)
+        self.is_mock = self.model is None
+
+    def _load_model(self, arch_info: dict) -> Any:
+        if not os.path.exists(self.model_path):
+            logger.warning(f"⚠️ Không tìm thấy trọng số tại: {self.model_path}")
+            return None
+        try:
+            module = importlib.import_module(arch_info["module"])
+            model_class = getattr(module, arch_info["class"])
+            model = model_class(**arch_info["params"])
+            
+            checkpoint = torch.load(self.model_path, map_location=self.device)
+            state_dict = checkpoint.get("model_state_dict", checkpoint.get("state_dict", checkpoint))
+            
+            model.load_state_dict(state_dict, strict=False)
+            model.to(self.device).eval()
+            logger.info(f"✅ Đã tải model {self.arch_type} thành công.")
+            return model
+        except Exception as e:
+            logger.error(f"❌ Lỗi nạp model: {e}")
+            return None
+
+    def _predict_tta(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+        """TTA: Original + Horizontal Flip"""
+        out1 = self.model(x)
+        x_flip = torch.flip(x, dims=[3])
+        out2 = self.model(x_flip)
+        
+        # Lấy key linh hoạt (seg_output hoặc seg_logits)
+        s_key = "seg_output" if "seg_output" in out1 else "seg_logits"
+        
+        s_out1 = out1[s_key]
+        s_out2 = torch.flip(out2[s_key], dims=[3])
+        
+        return {
+            "cls_output": (out1["cls_output"] + out2["cls_output"]) / 2.0,
+            s_key: (s_out1 + s_out2) / 2.0
+        }
+
+    def predict(self, input_data: Any) -> dict:
+        if self.is_mock or self.model is None: return self._mock_predict()
+        
+        try:
+            # 1. PHÂN TÁCH VÀ TIỀN XỬ LÝ (ĐỒNG BỘ TÁC GIẢ)
+            if isinstance(input_data, tuple) and len(input_data) == 2:
+                _, img_raw = input_data
+                img_uint8 = img_raw.astype(np.uint8) if img_raw.max() > 1.1 else (img_raw * 255).astype(np.uint8)
+            else:
+                img_uint8 = np.array(input_data).astype(np.uint8)
+
+            if img_uint8.ndim > 2: img_uint8 = img_uint8[..., 0] # Chuyển về Grayscale (H, W)
+
+            # CHUẨN HÓA THEO PIPELINE TÁC GIẢ
+            img_float = img_uint8.astype(np.float32) / 255.0
+            img_rgb = np.stack([img_float] * 3, axis=-1) # Stack 3 channels
+            img_norm = (img_rgb - self.MEAN) / self.STD   # ImageNet Normalize
+            
+            # [H, W, C] -> [B, C, H, W]
+            tensor = torch.from_numpy(img_norm.transpose(2, 0, 1)).unsqueeze(0).float().to(self.device)
+
+            # 2. INFERENCE
+            with torch.no_grad():
+                outputs = self._predict_tta(tensor) if self.use_tta else self.model(tensor)
+                
+                # A. Phân loại
+                c_out = outputs["cls_output"]
+                probs = F.softmax(c_out, dim=1).cpu().numpy()[0]
+                idx = np.argmax(probs)
+                
+                # B. Phân vùng
+                s_key = "seg_output" if "seg_output" in outputs else "seg_logits"
+                s_out = outputs[s_key]
+                
+                # Xử lý đa lớp (softmax) hoặc đơn lớp (sigmoid)
+                if s_out.shape[1] > 1:
+                    mask_prob = F.softmax(s_out, dim=1).cpu().numpy()[0, 1] # Lấy lớp Lesion
+                else:
+                    mask_prob = torch.sigmoid(s_out).cpu().numpy()[0, 0]
+                
+                mask_prob = np.nan_to_num(mask_prob)
+
+            # 3. VẼ OVERLAY (JET Heatmap + Contours)
+            mask_viz = ""
+            try:
+                bg_rgb = cv2.cvtColor(img_uint8, cv2.COLOR_GRAY2RGB)
+                h, w = bg_rgb.shape[:2]
+
+                # Resize mask về size ảnh gốc nếu lệch
+                if mask_prob.shape != (h, w):
+                    mask_res = cv2.resize(mask_prob, (w, h), interpolation=cv2.INTER_LINEAR)
+                else:
+                    mask_res = mask_prob
+
+                # Tạo mask nhị phân để lọc nhiễu (Threshold 0.5)
+                mask_255 = (np.clip(mask_res, 0, 1) * 255).astype(np.uint8)
+                _, mask_bin = cv2.threshold(mask_255, 127, 255, cv2.THRESH_BINARY)
+                
+                # Morphological filtering
+                kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+                mask_clean = cv2.morphologyEx(mask_bin, cv2.MORPH_OPEN, kernel)
+
+                # Vẽ Heatmap
+                heatmap = cv2.applyColorMap(mask_255, cv2.COLORMAP_JET)
+                overlay = cv2.addWeighted(bg_rgb, 0.4, heatmap, 0.6, 0)
+                
+                # Áp dụng overlay chỉ vùng có tổn thương
+                mask_bool = mask_clean > 0
+                bg_rgb[mask_bool] = overlay[mask_bool]
+
+                # Vẽ viền xanh lá
+                contours, _ = cv2.findContours(mask_clean, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                cv2.drawContours(bg_rgb, contours, -1, (0, 255, 0), 2)
+
+                _, buffer = cv2.imencode('.jpg', bg_rgb)
+                mask_viz = base64.b64encode(buffer).decode('utf-8')
+            except Exception as viz_e:
+                logger.warning(f"⚠️ Visualization failed: {viz_e}")
+
+            return {
+                "label": str(LABELS[int(idx)]),
+                "confidence": round(float(probs[idx]), 4),
+                "mask": mask_prob[::8, ::8].tolist(), # Downsample cho web
+                "mask_full_shape": list(mask_prob.shape),
+                "mask_viz": mask_viz
+            }
+
+        except Exception as e:
+            logger.error(f"Inference error: {e}", exc_info=True)
+            return self._mock_predict()
+
+    def _mock_predict(self):
+        return {"label": "Error", "confidence": 0.0, "mask": [], "mask_viz": ""}
+
+    # --- CÁC HÀM TIỆN ÍCH GIỮ NGUYÊN ---
+    def list_models(self) -> List[str]:
+        if not WEIGHTS_DIR.exists(): return []
+        return sorted([f for f in os.listdir(WEIGHTS_DIR) if f.endswith(('.pth', '.pt'))])
+
+    def set_model(self, model_name: str):
+        target_path = WEIGHTS_DIR / model_name
+        if not target_path.exists(): return
+        
+        for arch_key, info in ARCH_REGISTRY.items():
+            if os.path.basename(info["weight_path"]) == model_name:
+                self.arch_type = arch_key
+                self.model_path = str(target_path)
+                self.model = self._load_model(ARCH_REGISTRY[self.arch_type])
+                self.is_mock = self.model is None
+                return
+
+    @property
+    def selected_model(self) -> str:
+        return os.basename(self.model_path) if self.model_path else "None"
+
+model_runner = InferenceService()

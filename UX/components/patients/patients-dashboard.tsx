@@ -8,11 +8,17 @@ import { PatientList } from "./patient-list"
 import { PatientProfile } from "./patient-profile"
 import { NewPatientModal } from "@/components/new-patient-modal"
 import { DoctorHeader } from "@/components/doctor-header"
-import { Users, UserPlus } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu"
+import { Users, MoreHorizontal } from "lucide-react"
 
 export function PatientsDashboard() {
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
-  const { setNewPatientModalOpen, patients } = useAppState()
+  const { setNewPatientModalOpen, patients, deletePatient } = useAppState()
 
   // Keep selectedPatient in sync with store updates
   const syncedPatient = selectedPatient
@@ -33,13 +39,48 @@ export function PatientsDashboard() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => setNewPatientModalOpen(true)}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-          >
-            <UserPlus className="h-4 w-4" />
-            Add New Patient
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+                Manage Patient
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <button onClick={() => setNewPatientModalOpen(true)}>
+                  Add Patient
+                </button>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild disabled={!syncedPatient}>
+                <button
+                  className="w-full text-left text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={async () => {
+                    if (!syncedPatient) return
+                    const confirmed = window.confirm(
+                      `Delete patient ${syncedPatient.name}? This cannot be undone.`
+                    )
+                    if (!confirmed) return
+
+                    try {
+                      await deletePatient(syncedPatient.id)
+                      setSelectedPatient(null)
+                    } catch (error) {
+                      window.alert(
+                        error instanceof Error
+                          ? error.message
+                          : "Failed to delete patient"
+                      )
+                    }
+                  }}
+                >
+                  Delete Patient
+                </button>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <DoctorHeader />
         </div>
       </header>
@@ -64,6 +105,13 @@ export function PatientsDashboard() {
           </aside>
         )}
       </div>
+
+      {/*}  Footer */}
+      <footer className="py-2 px-6 border-t border-border bg-background">
+        <p className="text-[11px] text-center text-muted-foreground">
+          This is a graduation project by GSP26AI02 group, mentored by Mr. Le Phu Nguyen 
+        </p>
+      </footer>
 
       <NewPatientModal />
     </div>

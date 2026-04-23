@@ -1,0 +1,59 @@
+========================================================
+ REQUIREMENTS CHECK — RetinaAI OCT Segmentation System
+========================================================
+ Danh sách thư viện cốt lõi cần cài đặt trước khi chạy
+ Ngày tạo: 2026-04-23
+========================================================
+
+[BACKEND — Python 3.9+]
+────────────────────────────────────────────────────────
+Thư viện              Phiên bản      Mục đích
+────────────────────────────────────────────────────────
+torch                 2.4.1          Deep learning framework (GPU inference)
+torchvision           0.19.1         Image transforms & pretrained encoders
+opencv-python-headless 4.9.0.80      Computer vision (resize, morphology, heatmap)
+fastapi               0.115.0        REST API framework (async, auto-docs)
+uvicorn               0.30.0         ASGI server để chạy FastAPI
+sqlalchemy            2.0.38         ORM database abstraction
+monai                 1.3.2          Medical imaging preprocessing pipeline
+segmentation-models-pytorch 0.3.3    Pretrained encoder backbones (ResNet50, EfficientNet)
+numpy                 1.26.4         Xử lý mảng số
+python-dotenv         1.0.1          Đọc biến môi trường từ file .env
+python-multipart      0.0.20         Hỗ trợ upload file multipart/form-data
+pydantic-settings     2.2.1          Settings management
+
+[FRONTEND — Node.js 18+]
+────────────────────────────────────────────────────────
+Thư viện              Phiên bản      Mục đích
+────────────────────────────────────────────────────────
+next                  16.1.6         React meta-framework (SSR, routing)
+react                 19.2.4         UI library
+typescript            5.7.3          Static typing
+tailwindcss           4.2.0          Utility-first CSS framework
+@radix-ui/*           Latest         Accessible UI primitives (Shadcn/UI)
+react-hook-form       Latest         Form state management
+zod                   Latest         Schema validation
+recharts              2.15.0         Charting library
+
+[HỆ THỐNG]
+────────────────────────────────────────────────────────
+- Python:    >= 3.9
+- Node.js:   >= 18.0
+- npm:       >= 9.0
+- GPU:       NVIDIA CUDA-capable (khuyến nghị RTX 3060+)
+- RAM:       >= 8GB
+- Storage:   >= 2GB (không tính weights)
+
+[KIỂM TRA NHANH]
+────────────────────────────────────────────────────────
+# Kiểm tra Python
+python --version
+
+# Kiểm tra Node.js
+node --version
+
+# Kiểm tra GPU/CUDA
+python -c "import torch; print(f'CUDA: {torch.cuda.is_available()}, Device: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else \"CPU\"}')"
+
+# Kiểm tra thư viện Python cốt lõi
+python -c "import torch, torchvision, cv2, fastapi, monai; print('All core libraries OK')"

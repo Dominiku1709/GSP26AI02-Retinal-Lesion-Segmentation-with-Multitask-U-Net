@@ -47,10 +47,10 @@ export function PatientList({
           cmp = a.age - b.age
           break
         case "lastVisit":
-          cmp = a.lastVisit.localeCompare(b.lastVisit)
+          cmp = (a.last_visit || '').localeCompare(b.last_visit || '')
           break
         case "totalScans":
-          cmp = a.totalScans - b.totalScans
+          cmp = a.total_scans - b.total_scans
           break
       }
       return sortDir === "desc" ? -cmp : cmp
@@ -128,10 +128,10 @@ export function PatientList({
                 {patient.age}
               </span>
               <span className="flex items-center w-24 justify-end text-sm text-muted-foreground">
-                {patient.lastVisit}
+                {patient.last_visit || '—'}
               </span>
               <span className="flex items-center w-16 justify-end text-sm font-medium text-foreground">
-                {patient.totalScans}
+                {patient.total_scans}
               </span>
               <div className="flex items-center w-6">
                 <ChevronRight className={cn(

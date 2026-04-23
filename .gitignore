@@ -58,12 +58,28 @@ node_modules/
 out/
 dist/
 build/
+.vercel/
+.turbo/
+.swc/
+.eslintcache
+coverage/
 .env.local
 .env.*.local
+.env.development.local
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+lerna-debug.log*
+
+# Frontend cache & temp files
+UX/.cache/
+UX/temp/
+.cache/
+temp/
+
+# MacOS
+.DS_Store
 
 # IDEs
 .vscode/
@@ -96,6 +112,51 @@ $RECYCLE.BIN/
 *.sqlite
 *.sqlite3
 
+# Storage (if using local storage for development)
+backend_2.0/storage/
+storage/
+
+# ============================================================
+# DEVELOPMENT/DEBUG FILES - Not needed in production (S4 Final)
+# ============================================================
+
+# Root-level: ignore ALL scripts, archives, and shell files
+# (only README.md, REQUIREMENTS_CHECK.txt, and dirs are kept)
+/*.py
+/*.zip
+/*.ps1
+/*.sh
+/*.bat
+
+# Backend-level diagnostic/debug files (backend_2.0/)
+backend_2.0/gpu_diagnostic.py
+backend_2.0/convert_model.py
+backend_2.0/convert_dummy.py
+backend_2.0/diagnose_*.py
+backend_2.0/get_metric_from_model.py
+backend_2.0/migrate_db.py
+backend_2.0/verify_db.py
+backend_2.0/seed_data.py
+backend_2.0/test_env_config.py
+backend_2.0/mock_*.py
+backend_2.0/inference.py
+backend_2.0/inference.py.backup
+backend_2.0/*_backup.py
+backend_2.0/verify_fix.py
+backend_2.0/quick_fix_gpu.py
+backend_2.0/app/services/mock_dataset.py
+backend_2.0/app/services/mock_inference.py
+backend_2.0/app/services/mock_metric.py
+backend_2.0/app/services/realtest_*.py
+backend_2.0/app/services/inferencers.py
+
+# Archive files
+*.zip
+
+# ONNX models (legacy - using PyTorch .pth instead)
+backend_2.0/onnx_models/
+*.onnx
+
 # Logs
 logs/
 *.log
@@ -103,3 +164,42 @@ logs/
 # Misc Project Files
 .envrc
 docker-compose.override.yml
+
+# ============================================================
+# SUBMISSION EXCLUSIONS — Heavy data & runtime artifacts
+# ============================================================
+
+# Data directories (submit subset separately)
+data/
+datasets/
+dataset/
+backend_2.0/data/
+
+# Heavy database files (will recreate via seed_data.py)
+backend_2.0/oct_app.db
+
+# Runtime storage (uploaded images, generated masks)
+backend_2.0/storage/*
+!backend_2.0/storage/.gitkeep
+
+# Python bytecode (redundant safety — covers nested dirs)
+**/__pycache__/
+**/*.pyc
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+*.ipynb
+
+# Large archive files
+*.tar.gz
+*.tar
+*.rar
+*.7z
+
+# Model weights (submit via Model_Weights.zip separately)
+backend_2.0/weights/*.pth
+backend_2.0/weights/*.pt
+
+# Verification/debug files at backend root level
+backend_2.0/verify_fix.py
+backend_2.0/quick_fix_gpu.py

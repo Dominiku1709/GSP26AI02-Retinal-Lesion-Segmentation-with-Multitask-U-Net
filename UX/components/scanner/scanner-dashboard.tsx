@@ -1,16 +1,16 @@
 "use client"
 
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import { useAppState, type ScanResult, type Patient } from "@/lib/store"
 import { ImageUploader } from "./image-uploader"
 import { ProcessingOverlay } from "./processing-overlay"
 import { AnalysisViewer } from "./analysis-viewer"
 import { PatientContextPanel, type NewPatientFormData } from "./patient-context-panel"
 import { DoctorHeader } from "@/components/doctor-header"
+import { fetchAvailableModels, selectModel } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import {
   ScanLine,
-  User,
   ArrowLeft,
   ShieldCheck,
   Activity,
@@ -22,7 +22,15 @@ import {
   FileText,
   Check,
   Save,
+  Layers,
 } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu"
 
 type PatientMode = "existing" | "new"
 
@@ -185,10 +193,10 @@ function ResultsPanel({
             <div className="flex flex-col gap-1 rounded-lg bg-card border border-border p-2.5">
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <Clock className="h-3 w-3" />
-                <span className="text-xs">Processing</span>
+                <span className="text-xs">Reponse time</span>
               </div>
-              <span className="text-lg font-bold text-foreground">{scan.processingTime}s</span>
-              <span className="text-xs text-muted-foreground">U-Net v2.4</span>
+              <span className="text-lg font-bold text-foreground">{scan.responseTime}ms</span>
+              
             </div>
             <div className="flex flex-col gap-1 rounded-lg bg-card border border-border p-2.5">
               <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -196,17 +204,17 @@ function ResultsPanel({
                 <span className="text-xs">Lesions</span>
               </div>
               <span className="text-lg font-bold text-foreground">{scan.lesionTypes.length}</span>
-              <span className="text-xs text-muted-foreground">Types found</span>
+              
             </div>
             <div className="flex flex-col gap-1 rounded-lg bg-card border border-border p-2.5">
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <Activity className="h-3 w-3" />
-                <span className="text-xs">Coverage</span>
+                <span className="text-xs">Model</span>
               </div>
               <span className="text-lg font-bold text-foreground">
-                {scan.lesionTypes.reduce((a, l) => a + l.percentage, 0).toFixed(1)}%
+                {scan.architecture || "Unknown"}
               </span>
-              <span className="text-xs text-muted-foreground">Total area</span>
+              
             </div>
           </div>
 
@@ -220,7 +228,7 @@ function ResultsPanel({
                   style={{ backgroundColor: lesion.color }}
                 />
                 <span className="flex-1 text-xs text-foreground">{lesion.name}</span>
-                <span className="text-xs font-semibold text-foreground">{lesion.percentage}%</span>
+                
               </div>
             ))}
           </div>
@@ -435,6 +443,39 @@ export function ScannerDashboard() {
   const activeScan = currentScan
   const isResult = scannerMode === "result" || scannerMode === "processing"
 
+  const [availableModels, setAvailableModels] = useState<string[]>([])
+  const [selectedModel, setSelectedModel] = useState<string>("")
+  const [modelStatus, setModelStatus] = useState<string | null>(null)
+  const [modelError, setModelError] = useState<string | null>(null)
+
+  const loadModelList = useCallback(async () => {
+    try {
+      const response = await fetchAvailableModels()
+      setAvailableModels(response.available_models)
+      setSelectedModel(response.selected_model ?? "")
+      setModelError(null)
+    } catch (error) {
+      setModelError(error instanceof Error ? error.message : "Failed to load models")
+    }
+  }, [])
+
+  useEffect(() => {
+    loadModelList()
+  }, [loadModelList])
+
+  const handleSelectModel = useCallback(async (modelName: string) => {
+    try {
+      const response = await selectModel(modelName)
+      setSelectedModel(response.selected_model ?? "")
+      setAvailableModels(response.available_models)
+      setModelStatus(`Selected model: ${modelName}`)
+      setModelError(null)
+    } catch (error) {
+      setModelError(error instanceof Error ? error.message : "Failed to select model")
+      setModelStatus(null)
+    }
+  }, [])
+
   const handleBackToUpload = () => {
     setScannerMode("upload")
     setCurrentScan(null)
@@ -458,7 +499,7 @@ export function ScannerDashboard() {
           <ScanLine className="h-5 w-5 text-primary" />
           <div>
             <h1 className="text-base font-semibold text-foreground leading-tight">
-              {isResult ? "Scan Results" : "AI OCT Scanner"}
+              {isResult ? "Scan Results" : "OCT Scanner"}
             </h1>
             <p className="text-xs text-muted-foreground">
               Multi-task U-Net retinal lesion segmentation
@@ -467,9 +508,56 @@ export function ScannerDashboard() {
         </div>
 
         <div className="flex items-center gap-3">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+              >
+                <Layers className="h-4 w-4" />
+                Select Model
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuLabel>Available models</DropdownMenuLabel>
+              {availableModels.length > 0 ? (
+                availableModels.map((model) => (
+                  <DropdownMenuItem
+                    key={model}
+                    onSelect={() => handleSelectModel(model)}
+                    className={model === selectedModel ? "font-semibold" : ""}
+                  >
+                    {model}
+                  </DropdownMenuItem>
+                ))
+              ) : (
+                <DropdownMenuItem disabled>No models found</DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <button
+            onClick={() => window.location.href = "/compare-models"}
+            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-3 py-2 text-sm font-medium transition-all shadow-sm hover:shadow-md"
+            title="Run all models at once for comparison"
+          >
+            <Layers className="h-4 w-4" />
+            Run all model
+          </button>
+          <div className="rounded-full border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
+            {selectedModel || "Default model"}
+          </div>
           <DoctorHeader />
         </div>
       </header>
+
+      {(modelStatus || modelError) && (
+        <div className="border-b border-border bg-background px-5 py-2 text-xs text-right text-muted-foreground">
+          {modelError ? (
+            <span className="text-destructive">{modelError}</span>
+          ) : (
+            <span className="text-emerald-600">{modelStatus}</span>
+          )}
+        </div>
+      )}
 
       {/* 3-Column Layout */}
       <div className="flex flex-1 overflow-hidden">
@@ -529,6 +617,13 @@ export function ScannerDashboard() {
           </aside>
         )}
       </div>
+
+            {/*}  Footer */}
+      <footer className="py-2 px-6 border-t border-border bg-background">
+        <p className="text-[11px] text-center text-muted-foreground">
+          This is a graduation project by GSP26AI02 group, mentored by Mr. Le Phu Nguyen 
+        </p>
+      </footer>
     </div>
   )
 }

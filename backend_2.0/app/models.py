@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Date, ForeignKey
+#backend_2.0/app/models.py
+from sqlalchemy import Column, Integer, String, Float, DateTime, Date, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime, date
 from .database import Base
@@ -70,14 +71,23 @@ class OCTScan(Base):
     # The name of the file saved in /storage/
     filename = Column(String, nullable=False)
     
+    # Segmentation mask filename (PNG saved in /storage/ with naming scheme "mask+{image_filename}")
+    segmentation_mask_filename = Column(String, nullable=True)
+    
     # The output from your AI model
     lesion_type = Column(String, index=True)
     
     # The probability/confidence score (e.g., 0.98)
     confidence = Column(Float)
+
+    # NEW: Reliability score (e.g., 0.85) — a measure of how much the model "trusts" this prediction
+    reliability_score = Column(Float, nullable=True, default=0.0)
     
-    # Segmentation mask as Base64 PNG (NEW)
-    segmentation_mask_base64 = Column(String, nullable=True)
+    # NEW: Heatmap visualization as Base64 JPEG (from mask_viz in prediction)
+    mask_viz_base64 = Column(String, nullable=True)
+
+    # Stability metrics (NEW) — JSON field to store any additional info about prediction stability
+    stability_metrics = Column(JSON, nullable=True)
     
     # Doctor's validation fields (NEW)
     doctor_label = Column(String, nullable=True)

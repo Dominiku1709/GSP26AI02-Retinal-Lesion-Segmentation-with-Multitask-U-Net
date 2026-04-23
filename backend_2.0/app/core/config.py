@@ -1,4 +1,4 @@
-# app/core/config.py
+# backend_2.0/app/core/config.py
 
 PREPROCESS_CONFIG = {
     "target_size": (224, 224),

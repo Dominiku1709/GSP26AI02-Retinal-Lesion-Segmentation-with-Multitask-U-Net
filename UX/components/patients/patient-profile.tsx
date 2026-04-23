@@ -13,6 +13,7 @@ export function PatientProfile({
   onClose: () => void
 }) {
   const { setCurrentPage } = useAppState()
+  const scans = patient.scans ?? []
 
   const lesionColor = (name: string) => {
     if (name === "AMD")    return "#ef4444"
@@ -52,14 +53,14 @@ export function PatientProfile({
             <ScanLine className="h-3.5 w-3.5" />
             <span className="text-xs">Total Scans</span>
           </div>
-          <span className="text-xl font-bold text-foreground">{patient.totalScans}</span>
+          <span className="text-xl font-bold text-foreground">{patient.total_scans}</span>
         </div>
         <div className="rounded-lg bg-card border border-border p-3 flex flex-col gap-1">
           <div className="flex items-center gap-1.5 text-muted-foreground">
             <Calendar className="h-3.5 w-3.5" />
             <span className="text-xs">Last Visit</span>
           </div>
-          <span className="text-sm font-semibold text-foreground">{patient.lastVisit || "—"}</span>
+          <span className="text-sm font-semibold text-foreground">{patient.last_visit || "—"}</span>
         </div>
       </div>
 
@@ -70,7 +71,7 @@ export function PatientProfile({
           Scan History
         </h3>
 
-        {patient.scans.length === 0 ? (
+        {scans.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border p-6 text-center">
             <p className="text-xs text-muted-foreground">No scans yet.</p>
             <button
@@ -82,7 +83,7 @@ export function PatientProfile({
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            {patient.scans.map((scan) => {
+            {scans.map((scan) => {
               const lesion = scan.lesionTypes[0]
               return (
                 <div

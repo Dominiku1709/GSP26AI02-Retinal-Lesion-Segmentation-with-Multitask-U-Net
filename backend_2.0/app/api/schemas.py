@@ -1,3 +1,4 @@
+# backend_2.0/app/api/schemas.py
 from pydantic import BaseModel
 from datetime import datetime, date
 from typing import Optional, List
@@ -5,18 +6,39 @@ from typing import Optional, List
 
 # ─── OCT SCAN SCHEMAS ──────────────────────────────────────────────────────
 
-# BUG FIX #3: The original AnalysisResponse was missing 'id' and 'image_url',
-# which are needed by the frontend to display the uploaded image and reference
-# the record. These are now included so the frontend gets everything in one call.
+class StabilityMetrics(BaseModel):
+    tta_iou: float
+    objects_found: int
+    is_stable: bool
+
+
 class AnalysisResponse(BaseModel):
-    """Returned by POST /analyze. Everything the frontend needs after a scan."""
+    """Bản rút gọn: Chỉ giữ lại những gì thực sự cần thiết"""
     id: int
-    lesion_type: str           # e.g. "Drusen", "CNV", "Normal"
-    confidence: float          # 0.0 → 1.0 (backend keeps raw; frontend scales to %)
-    segmentation_mask_base64: Optional[str] = None  # data:image/png;base64,...
-    filename: str              # UUID filename in /storage/
-    image_url: str             # Full URL: http://localhost:8000/images/{filename}
-    inference_time_ms: float   # Client can display this as processing time
+    lesion_type: str        
+    confidence: float       
+    mask_viz: str           
+    mask_viz_base64: Optional[str] = None 
+    architecture: str       
+    filename: str           
+    image_url: str          
+    response_time: float
+
+
+class AnalyzeAllResponse(BaseModel):
+    """Returned by POST /analyze-all. Results from all models."""
+    results: List[AnalysisResponse]          # One result per model
+
+
+class ModelListResponse(BaseModel):
+    available_models: List[str]
+    selected_model: Optional[str] = None
+
+
+class ModelSelectionRequest(BaseModel):
+    model_name: str
+
+    model_config = {"protected_namespaces": ()}
 
 
 class HistoryRecord(BaseModel):
@@ -25,6 +47,9 @@ class HistoryRecord(BaseModel):
     filename: str
     lesion_type: str
     confidence: float
+    reliability_score: Optional[float] = 0.0
+    stability_metrics: Optional[StabilityMetrics] = None
+    mask_viz_base64: Optional[str] = None  # NEW: Heatmap for PDF export
     created_at: datetime
     image_url: str             # Computed field — not stored in DB, added in endpoint
 

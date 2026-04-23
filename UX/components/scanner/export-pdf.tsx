@@ -46,12 +46,7 @@ function generatePdfReport(
     )
     .join("")
 
-  const validationLabel =
-    scan.validationStatus === "approved"
-      ? "Approved"
-      : scan.validationStatus === "edited"
-        ? "Edited by Doctor"
-        : "Pending Review"
+  const validationLabel = "Pending Review"  // Simplified for current ScanResult
 
   const html = `<!DOCTYPE html>
 <html>
@@ -102,23 +97,30 @@ function generatePdfReport(
   <h2>AI Analysis Results</h2>
   <div class="grid" style="margin-bottom:16px;">
     <div class="field"><div class="label">Model Confidence</div><div class="value">${scan.confidence}%</div></div>
-    <div class="field"><div class="label">Processing Time</div><div class="value">${scan.processingTime}s</div></div>
-    <div class="field"><div class="label">Model</div><div class="value">Multi-task U-Net v2.4</div></div>
-    <div class="field"><div class="label">Total Lesion Area</div><div class="value">${scan.lesionTypes.reduce((a, l) => a + l.percentage, 0).toFixed(1)}%</div></div>
+    <div class="field"><div class="label">Reliability Score</div><div class="value">${(scan.reliabilityScore * 100).toFixed(1)}%</div></div>
+    <div class="field"><div class="label">Prediction Stability</div><div class="value">${scan.stabilityMetrics.is_stable ? "✓ Stable" : "⚠ Unstable"}</div></div>
+    <div class="field"><div class="label">Response Time</div><div class="value">${(scan.responseTime || 0).toFixed(0)}ms</div></div>
   </div>
 
   <table>
-    <thead><tr><th>Lesion Type</th><th>Coverage</th></tr></thead>
+    <thead><tr><th>Lesion Type</th><th>Percentage</th></tr></thead>
     <tbody>${lesionRows}</tbody>
   </table>
+
+  ${scan.maskVisualization ? `
+  <h2>OCT Scan Visualization</h2>
+  <div style="margin-bottom:24px;text-align:center;">
+    <img src="data:image/jpeg;base64,${scan.maskVisualization}" alt="OCT Heatmap" style="max-width:100%;height:auto;border:1px solid #e2e8f0;border-radius:4px;max-height:400px;" />
+    <div style="font-size:12px;color:#64748b;margin-top:8px;">AI-Generated Lesion Probability Heatmap (JET Colormap)</div>
+  </div>
+  ` : ""}
 
   <h2>Clinical Validation</h2>
   <div class="conclusion">
     <div style="margin-bottom:8px;">
-      <span class="status ${scan.validationStatus}">${validationLabel}</span>
+      <span class="status pending">${validationLabel}</span>
     </div>
     <div class="field" style="margin-bottom:6px;"><div class="label">Doctor's Diagnostic Label</div><div class="value">${scan.doctorLabel || "Pending doctor review"}</div></div>
-    ${scan.notes ? `<div class="field"><div class="label">Clinical Notes</div><div class="value">${scan.notes}</div></div>` : ""}
   </div>
 
   <div class="footer">

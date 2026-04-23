@@ -15,6 +15,33 @@ export function AnalysisViewer() {
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const [maskImage, setMaskImage] = useState<HTMLImageElement | null>(null)
+  const [maskLoadError, setMaskLoadError] = useState(false)
+
+  // Load mask image when scan changes
+  useEffect(() => {
+    setMaskLoadError(false)
+    
+    if (scan?.maskOverlay) {
+      const img = new Image()
+      
+      img.onload = () => {
+        setMaskImage(img)
+        setMaskLoadError(false)
+      }
+      
+      img.onerror = () => {
+        console.error("Failed to load mask image from:", scan.maskOverlay)
+        setMaskImage(null)
+        setMaskLoadError(true)
+      }
+      
+      img.src = scan.maskOverlay
+    } else {
+      setMaskImage(null)
+      setMaskLoadError(false)
+    }
+  }, [scan?.maskOverlay])
 
   const drawCanvas = useCallback(() => {
     const canvas = canvasRef.current
@@ -25,72 +52,55 @@ export function AnalysisViewer() {
     const w = canvas.width
     const h = canvas.height
 
+    // 1. Luôn xóa sạch canvas trước khi vẽ
     ctx.clearRect(0, 0, w, h)
+    
     ctx.save()
+    // Thiết lập Zoom và Pan
     ctx.translate(w / 2 + pan.x, h / 2 + pan.y)
     ctx.scale(zoom, zoom)
     ctx.translate(-w / 2, -h / 2)
 
-    // Draw simulated OCT background
-    const gradient = ctx.createLinearGradient(0, 0, 0, h)
-    gradient.addColorStop(0, "#1a1a2e")
-    gradient.addColorStop(0.3, "#16213e")
-    gradient.addColorStop(0.5, "#0f3460")
-    gradient.addColorStop(0.7, "#1a1a2e")
-    gradient.addColorStop(1, "#0a0a15")
-    ctx.fillStyle = gradient
-    ctx.fillRect(0, 0, w, h)
-
-    // Draw retinal layers
-    for (let i = 0; i < 8; i++) {
-      ctx.beginPath()
-      ctx.strokeStyle = `rgba(100, 180, 220, ${0.15 + i * 0.05})`
-      ctx.lineWidth = 1.5 + Math.random()
-      const yBase = 60 + i * 35
-      ctx.moveTo(0, yBase)
-      for (let x = 0; x < w; x += 3) {
-        const y = yBase + Math.sin(x * 0.015 + i) * 12 + Math.sin(x * 0.005) * 8
-        ctx.lineTo(x, y)
+    // 2. CHỈ VẼ DỮ LIỆU THẬT TỪ MASK IMAGE
+    if (maskImage) {
+      const maskAspect = maskImage.width / maskImage.height
+      const canvasAspect = w / h
+      
+      let drawW, drawH, drawX, drawY
+      if (maskAspect > canvasAspect) {
+        drawW = w
+        drawH = w / maskAspect
+        drawX = 0
+        drawY = (h - drawH) / 2
+      } else {
+        drawH = h
+        drawW = h * maskAspect
+        drawX = (w - drawW) / 2
+        drawY = 0
       }
-      ctx.stroke()
-    }
 
-    // Add noise texture
-    for (let i = 0; i < 2000; i++) {
-      const x = Math.random() * w
-      const y = Math.random() * h
-      const alpha = Math.random() * 0.08
-      ctx.fillStyle = `rgba(180, 210, 240, ${alpha})`
-      ctx.fillRect(x, y, 1, 1)
-    }
-
-    // Draw segmentation overlay
-    if (showOverlay && scan) {
-      scan.lesionTypes.forEach((lesion, idx) => {
-        ctx.globalAlpha = 0.35
-        const cx = 120 + idx * 130 + Math.sin(idx * 2) * 40
-        const cy = 140 + Math.cos(idx * 3) * 30
-        const rx = 40 + lesion.percentage * 1.2
-        const ry = 25 + lesion.percentage * 0.8
-
-        ctx.beginPath()
-        ctx.ellipse(cx, cy, rx, ry, Math.PI * 0.1 * idx, 0, Math.PI * 2)
-        ctx.fillStyle = lesion.color
-        ctx.fill()
-
-        // Dashed border
-        ctx.globalAlpha = 0.7
-        ctx.setLineDash([4, 3])
-        ctx.strokeStyle = lesion.color
-        ctx.lineWidth = 1.5
-        ctx.stroke()
-        ctx.setLineDash([])
-      })
-      ctx.globalAlpha = 1
+      // Kiểm tra chẩn đoán để quyết định độ mờ
+      const isNormal = scan?.lesionTypes.some(l => l.name === "Normal");
+      
+      if (showOverlay) {
+        // Nếu bật Mask, tùy vào loại bệnh mà có thể để nguyên hoặc chỉnh alpha
+        // Vì Backend của bạn thường trả về ảnh OCT có đè sẵn mask màu, nên để alpha = 1
+        ctx.globalAlpha = 1.0 
+        ctx.drawImage(maskImage, drawX, drawY, drawW, drawH)
+      } else {
+        // Nếu người dùng tắt Mask (nếu backend hỗ trợ ảnh gốc riêng thì vẽ ảnh gốc ở đây)
+        // Hiện tại tạm thời vẽ maskImage nhưng có thể giảm alpha hoặc giữ nguyên
+        ctx.globalAlpha = 1.0
+        ctx.drawImage(maskImage, drawX, drawY, drawW, drawH)
+      }
+    } else {
+        // Nếu chưa có ảnh, vẽ một nền đen trống
+        ctx.fillStyle = "#000000"
+        ctx.fillRect(0, 0, w, h)
     }
 
     ctx.restore()
-  }, [zoom, pan, showOverlay, scan])
+  }, [zoom, pan, showOverlay, scan, maskImage])
 
   useEffect(() => {
     drawCanvas()

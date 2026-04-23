@@ -26,7 +26,7 @@ export function PatientAssignment() {
       patients.filter(
         (p) =>
           p.name.toLowerCase().includes(search.toLowerCase()) ||
-          p.id.toLowerCase().includes(search.toLowerCase())
+          String(p.id).toLowerCase().includes(search.toLowerCase())
       ),
     [patients, search]
   )
@@ -89,7 +89,7 @@ export function PatientAssignment() {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground truncate">{patient.name}</p>
               <p className="text-xs text-muted-foreground">
-                {patient.id} / {patient.age}y / {patient.totalScans} scans
+                {patient.id} / {patient.age}y / {patient.total_scans} scans
               </p>
             </div>
             {selectedPatientId === patient.id && (
