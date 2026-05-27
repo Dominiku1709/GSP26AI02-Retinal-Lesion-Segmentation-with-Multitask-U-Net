@@ -14,7 +14,7 @@ class StabilityMetrics(BaseModel):
 
 class AnalysisResponse(BaseModel):
     """Bản rút gọn: Chỉ giữ lại những gì thực sự cần thiết"""
-    id: int
+    id: Optional[int] = None # Cho phép None nếu chạy analyze-all (không lưu DB)
     lesion_type: str        
     confidence: float       
     mask_viz: str           
@@ -23,6 +23,9 @@ class AnalysisResponse(BaseModel):
     filename: str           
     image_url: str          
     response_time: float
+    # Thêm các trường optional nếu analyze-all cần
+    reliability_score: Optional[float] = 0.0
+    stability_metrics: Optional[StabilityMetrics] = None
 
 
 class AnalyzeAllResponse(BaseModel):
@@ -30,13 +33,20 @@ class AnalyzeAllResponse(BaseModel):
     results: List[AnalysisResponse]          # One result per model
 
 
-class ModelListResponse(BaseModel):
-    available_models: List[str]
-    selected_model: Optional[str] = None
+class ModelInfo(BaseModel):
+    """Cấu trúc cho từng model trong danh sách"""
+    file_name: str
+    display_name: str
 
+class ModelListResponse(BaseModel):
+    """Phản hồi danh sách model kèm model đang được chọn"""
+    available_models: List[str]  # Sửa từ List[str] thành List[ModelInfo]
+    selected_model: Optional[str] = None
+    # Bỏ display_names cũ vì thông tin đã nằm trong ModelInfo
 
 class ModelSelectionRequest(BaseModel):
-    model_name: str
+    """Yêu cầu chọn model từ phía Frontend"""
+    model_name: str  # Đây thường là file_name để backend dễ tìm file .pth
 
     model_config = {"protected_namespaces": ()}
 
@@ -60,16 +70,14 @@ class HistoryRecord(BaseModel):
 # ─── PATIENT SCHEMAS ──────────────────────────────────────────────────────
 
 class PatientCreate(BaseModel):
-    """Request body for POST /patients"""
     name: str
     dob: Optional[date] = None
-    gender: Optional[str] = "Other"  # "Male", "Female", "Other"
+    gender: Optional[str] = "Other"
     contact: Optional[str] = None
     medical_notes: Optional[str] = None
 
 
 class PatientUpdate(BaseModel):
-    """Request body for PUT /patients/{id}"""
     name: Optional[str] = None
     dob: Optional[date] = None
     gender: Optional[str] = None
@@ -78,7 +86,6 @@ class PatientUpdate(BaseModel):
 
 
 class PatientResponse(BaseModel):
-    """Returned by GET /patients, GET /patients/{id}, POST /patients, PUT /patients/{id}"""
     id: int
     name: str
     dob: Optional[date] = None
@@ -87,16 +94,15 @@ class PatientResponse(BaseModel):
     medical_notes: Optional[str] = None
     created_at: datetime
     updated_at: datetime
-    age: int  # Computed property from model
-    total_scans: int  # Computed property from model
-    last_visit: str  # ISO datetime string (computed property)
+    age: int
+    total_scans: int
+    last_visit: Optional[str] = None # Đổi thành Optional vì có thể chưa có scan nào
 
     class Config:
-        from_attributes = True  # Build from SQLAlchemy ORM objects
+        from_attributes = True
 
 
 class PatientListResponse(BaseModel):
-    """Wrapper for GET /patients with pagination"""
     total: int
     skip: int
     limit: int

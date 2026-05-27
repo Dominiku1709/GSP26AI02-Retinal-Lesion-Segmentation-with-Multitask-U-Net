@@ -13,7 +13,7 @@ from ..services import preprocess
 # BUG FIX #1: Import model_runner directly, not the module.
 # Previously: inference.predict() was called, but 'inference' is a MODULE.
 # The actual callable is 'model_runner' (the InferenceService instance at the bottom of inference.py).
-from ..services.inference import model_runner
+from ..services.inference import ARCH_REGISTRY, model_runner
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +136,7 @@ async def analyze_all_models(
         if not patient:
             raise HTTPException(status_code=404, detail=f"Patient {patient_id} not found")
 
+
     # 2. PERSISTENCE: Save raw file with a unique name
     file_extension = os.path.splitext(file.filename or "upload.png")[1]
     unique_filename = f"{uuid.uuid4()}{file_extension}"
@@ -151,31 +152,33 @@ async def analyze_all_models(
 
         # 4. INFERENCE ON ALL MODELS (parallel, no DB save)
         all_results = []
-        available_models = model_runner.list_models()
+        available_models = model_runner.list_models()  # List[str] of display_names
 
-        def run_single_model_inference(model_name: str):
+        def run_single_model_inference(display_name: str):
             try:
-                current_model = model_runner.selected_model
-                model_runner.set_model(model_name)
+                current_model = getattr(model_runner, "selected_model", None)
+                model_runner.set_model_by_display_name(display_name)
                 prediction = model_runner.predict(processed_image)
-                model_runner.set_model(current_model)
-                return model_name, prediction, None
+                if current_model and current_model != "None":
+                    model_runner.set_model(current_model)
+                return display_name, prediction, None
             except Exception as e:
-                return model_name, None, str(e)
+                return display_name, None, str(e)
 
-        # Run all models in parallel
         import time
+        if not available_models:
+            return schemas.AnalyzeAllResponse(results=[])
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(available_models)) as executor:
             futures = {
-                executor.submit(run_single_model_inference, model_name): model_name
-                for model_name in available_models
+                executor.submit(run_single_model_inference, display_name): display_name
+                for display_name in available_models
             }
             for future in concurrent.futures.as_completed(futures):
-                model_name, prediction, error = future.result()
+                display_name, prediction, error = future.result()
                 if error:
-                    logger.error(f"Error running {model_name}: {error}")
+                    logger.error(f"Error running {display_name}: {error}")
                     continue
-                # Build response for this model (no DB id)
                 result = schemas.AnalysisResponse(
                     id=None,
                     lesion_type=prediction["label"],
@@ -186,7 +189,7 @@ async def analyze_all_models(
                     stability_metrics=prediction.get("stability_metrics", None),
                     filename=unique_filename,
                     image_url=f"http://localhost:8000/images/{unique_filename}",
-                    architecture=prediction.get("architecture", model_name),
+                    architecture=prediction.get("architecture", display_name),
                     response_time=prediction.get("response_time", 0.0),
                 )
                 all_results.append(result)
@@ -309,33 +312,41 @@ def health_check(db: Session = Depends(get_db)):
     except Exception:
         db_status = "disconnected"
 
+    current_file = model_runner.selected_model
+    display_name = next((info["display_name"] for info in ARCH_REGISTRY.values()
+                         if info["weight_path"] == current_file), current_file)
+
     return {
         "status": "healthy",
         "app_name": "OCT Analysis Backend",
         "version": "2.0.0",
         "database": db_status,
         "model_available": not model_runner.is_mock,
-        "selected_model": model_runner.selected_model,
+        "selected_model": display_name, # Trả về tên hiển thị cho đẹp
     }
-
 
 @router.get("/models", response_model=schemas.ModelListResponse)
 def get_model_list():
-    """Return the models available in backend_2.0/weights."""
-    return schemas.ModelListResponse(
-        available_models=model_runner.list_models(),
-        selected_model=model_runner.selected_model,
-    )
+    # model_runner.list_models() giờ đã trả về List[str] (các display_name)
+    available_models = model_runner.list_models()
+    
+    # Lấy display_name của model hiện tại
+    current_file = os.path.basename(model_runner.model_path) if model_runner.model_path else ""
+    # Tìm display_name tương ứng
+    current_display = next((info["display_name"] for info in ARCH_REGISTRY.values() 
+                           if info["weight_path"] == current_file), current_file)
 
+    return schemas.ModelListResponse(
+        available_models=available_models,
+        selected_model=current_display
+    )
 
 @router.post("/models/select", response_model=schemas.ModelListResponse)
 def select_model(selection: schemas.ModelSelectionRequest):
-    """Switch the backend to use the selected ONNX model."""
+    # selection.model_name lúc này sẽ là "U-Net++" gửi từ Frontend
     try:
-        model_runner.set_model(selection.model_name)
-    except FileNotFoundError as exc:
+        model_runner.set_model_by_display_name(selection.model_name)
+    except Exception as exc:
         raise HTTPException(status_code=404, detail=str(exc))
-    return schemas.ModelListResponse(
-        available_models=model_runner.list_models(),
-        selected_model=model_runner.selected_model,
-    )
+        
+    return get_model_list() # Trả về danh sách mới

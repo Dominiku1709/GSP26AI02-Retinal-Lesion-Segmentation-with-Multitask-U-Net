@@ -534,21 +534,20 @@ export function ScannerDashboard() {
               )}
             </DropdownMenuContent>
           </DropdownMenu>
-          <button
+          {/* <button
             onClick={() => window.location.href = "/compare-models"}
             className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-3 py-2 text-sm font-medium transition-all shadow-sm hover:shadow-md"
             title="Run all models at once for comparison"
           >
             <Layers className="h-4 w-4" />
             Run all model
-          </button>
+          </button> */}
           <div className="rounded-full border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
             {selectedModel || "Default model"}
-          </div>
+          </div> {/* Doctor Header on the right side of the header bar */}
           <DoctorHeader />
-        </div>
+        </div>   
       </header>
-
       {(modelStatus || modelError) && (
         <div className="border-b border-border bg-background px-5 py-2 text-xs text-right text-muted-foreground">
           {modelError ? (

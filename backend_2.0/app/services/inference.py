@@ -36,29 +36,34 @@ LABELS = ["Normal", "AMD", "DME", "Lesion"]
 IMAGE_SIZE = 512
 
 ARCH_REGISTRY = {
+
     "vanilla": {
         "module": "model_architecture.model_architecture", 
         "class": "VanillaMultitaskUNet",
         "weight_path": "Vanilla.pth", # Chỉ cần tên file
-        "params": {"in_channels": 1, "num_classes": 4, "num_seg_classes": 1, "dropout_rate": 0.3}
+        "params": {"in_channels": 1, "num_classes": 4, "num_seg_classes": 1, "dropout_rate": 0.3},
+        "display_name": "Vanilla U-Net"
     },
     "resnet_unet": {
         "module": "model_architecture.model_architecture",
         "class": "ResNet50MultiTaskUNet",
         "weight_path": "Resnet50.pth",
-        "params": {"in_channels": 1, "num_classes": 4, "num_seg_classes": 1, "dropout_rate": 0.3}
+        "params": {"in_channels": 1, "num_classes": 4, "num_seg_classes": 1, "dropout_rate": 0.3},
+        "display_name": "ResNet50 U-Net"
     },
     "effb3_unet": {
         "module": "model_architecture.model_architecture",
         "class": "ImprovedOctMultiTaskUNet",
-        "weight_path": "effb3.pth",
-        "params": {"in_channels": 1, "num_classes": 4, "num_seg_classes": 1, "dropout_rate": 0.3}
+        "weight_path": "best_model.pth",
+        "params": {"in_channels": 1, "num_classes": 4, "num_seg_classes": 1, "dropout_rate": 0.3},
+        "display_name": "EfficientNet-B3 U-Net"
     },
     "unetplusplus": {
         "module": "model_architecture.model_architecture",
         "class": "UNetPlusPlusMultiTask",
         "weight_path": "Unet.pth",
-        "params": {"in_channels": 1, "num_classes": 4, "num_seg_classes": 1, "dropout_rate": 0.3}
+        "params": {"in_channels": 1, "num_classes": 4, "num_seg_classes": 1, "dropout_rate": 0.3},
+        "display_name": "U-Net++"
     }
 }
 
@@ -126,29 +131,44 @@ class InferenceService:
             logger.error(f"Error loading model {full_path}: {e}")
             return None
 
-    def list_models(self) -> List[str]:
-        """Trả về danh sách file model trong thư mục weights/"""
-        if not WEIGHTS_DIR.exists(): return []
-        return sorted([f for f in os.listdir(WEIGHTS_DIR) if f.endswith(('.pth', '.pt'))])
 
-    def set_model(self, model_name: str):
-        """Đổi model dựa trên tên file cụ thể"""
-        target_path = WEIGHTS_DIR / model_name
-        if not target_path.exists():
-            raise FileNotFoundError(f"Không tìm thấy file {model_name} tại {WEIGHTS_DIR}")
+    def list_models(self) -> List[str]:
+        """Chỉ trả về danh sách tên hiển thị để khớp với Frontend cũ"""
+        if not WEIGHTS_DIR.exists():
+            return []
         
-        # Tìm kiến trúc phù hợp dựa trên tên file trong Registry
-        found_arch = "vanilla"
+        model_files = [f for f in os.listdir(WEIGHTS_DIR) if f.endswith(('.pth', '.pt'))]
+        
+        # Tạo map từ file -> display_name
+        weight_to_display = {info["weight_path"]: info.get("display_name", info["weight_path"]) 
+                            for info in ARCH_REGISTRY.values()}
+        
+        # Trả về List[str] chứa các display_name
+        return [weight_to_display.get(f, f) for f in model_files]
+
+# backend_2.0/app/services/inference.py
+
+    def set_model_by_display_name(self, display_name: str):
+        """Tìm file .pth tương ứng với tên hiển thị và nạp mô hình"""
+        target_info = None
+        target_key = "vanilla"
+
+        # Tìm trong Registry xem tên hiển thị này thuộc về kiến trúc nào
         for arch_key, info in ARCH_REGISTRY.items():
-            if info["weight_path"] == model_name:
-                found_arch = arch_key
+            if info.get("display_name") == display_name or info["weight_path"] == display_name:
+                target_info = info
+                target_key = arch_key
                 break
         
-        self.arch_type = found_arch
-        self.model_path = str(target_path)
-        self.model = self._load_model(ARCH_REGISTRY[found_arch], target_path)
-        self.is_mock = self.model is None
-
+        if target_info:
+            full_path = WEIGHTS_DIR / target_info["weight_path"]
+            self.arch_type = target_key
+            self.model_path = str(full_path)
+            self.model = self._load_model(target_info, full_path)
+            self.is_mock = self.model is None
+        else:
+            raise FileNotFoundError(f"Không tìm thấy mô hình có tên: {display_name}")
+        
     def set_model_by_arch(self, arch_type: str):
         """Nạp model dựa trên key kiến trúc (vanilla, resnet_unet,...)"""
         info = ARCH_REGISTRY.get(arch_type, ARCH_REGISTRY["vanilla"])
@@ -189,6 +209,13 @@ class InferenceService:
 
         _, buffer = cv2.imencode('.jpg', canvas)
         return base64.b64encode(buffer).decode('utf-8')
+    
+    def selected_model_display_name(self) -> str:
+        current_file = os.path.basename(self.model_path) if self.model_path else ""
+        for info in ARCH_REGISTRY.values():
+            if info["weight_path"] == current_file:
+                return info.get("display_name", current_file)
+        return current_file or "None"
 
     @torch.no_grad()
     def predict(self, input_data: Any) -> dict:
@@ -227,7 +254,7 @@ class InferenceService:
             # Chúng ta trừ 1 vì nhãn 0 luôn là nền (background)
             num_labels, _ = cv2.connectedComponents(final_mask_bin)
             detected_masks_count = max(0, num_labels - 1)
-            print(f"--- [DEBUG INFERENCE] Model: {self.arch_type} | Số lượng mask (vùng tổn thương) tạo ra: {detected_masks_count} ---")
+            print(f"--- [DEBUG INFERENCE] Model: {self.arch_type} | Số lượng mask (vùng tổn thương) tạo ra: {detected_masks_count} | Confidence: {cls_probs} ---")
             # ──────────────────────────────────────────
 
             # 6. Tạo Visualization

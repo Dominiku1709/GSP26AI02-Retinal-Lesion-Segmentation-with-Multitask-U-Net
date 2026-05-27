@@ -303,7 +303,7 @@ class ImprovedOctMultiTaskUNet(nn.Module):
         self.aspp = ASPP(bottleneck_ch, bottleneck_ch, inner_channels=256, dropout=dropout_rate)
         self.decoder = UnetDecoder(
             encoder_channels=self.encoder.out_channels, decoder_channels=decoder_ch,
-            n_blocks=5, add_center_block=False, attention_type="scse",
+            n_blocks=5, attention_type="scse",
         )
         
         blocks_list = _get_blocks_list(self.decoder.blocks)
